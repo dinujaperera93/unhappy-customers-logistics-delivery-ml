@@ -45,7 +45,7 @@ def explore_data(df):
     plt.grid(True)
     plt.show() 
        
-    return df
+    return df, tag_to_comment
 
 def split_data(df, target, test_size=0.2):
     X = df.loc[:, df.columns != target]
@@ -70,7 +70,7 @@ def tune_hyperparameters(X_train, y_train):
     grid_search = GridSearchCV(
         estimator=rf,
         param_grid=param_grid,
-        cv=5,
+        cv=10,
         scoring='accuracy',
         n_jobs=1,
         verbose=1
@@ -83,7 +83,7 @@ def tune_hyperparameters(X_train, y_train):
     best_score = grid_search.best_score_
     
     print(f"Best Parameters: {best_params}")
-    print(f"Best Score: {best_score}")
+    print(f"Best Score: {round(best_score,2)}")
     
     return best_model, best_params, best_score
 
@@ -92,6 +92,13 @@ def evaluate_model(model, X_test, y_test):
     clf_report = classification_report(y_test, y_pred)
     return clf_report
 
-def important_features(model):
-    best_features = model.feature_importances_
-    return best_features
+def important_features(X_train, model, tag_to_comment):
+    importances = model.feature_importances_
+    
+    feature_df = pd.DataFrame({
+        'Feature': X_train.columns,
+        'Description': [tag_to_comment[f] for f in X_train.columns],
+        'Importance': np.round(importances,3)
+    })
+    feature_df = feature_df.sort_values('Importance', ascending=False).reset_index(drop=True)
+    return feature_df
