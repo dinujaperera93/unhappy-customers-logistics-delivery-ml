@@ -1,5 +1,5 @@
 import sys
-from customer_model import load_data, explore_data,split_data, tune_hyperparameters, evaluate_model, important_features
+from customer_model import load_data, explore_data,split_data, tune_hyperparameters, evaluate_model, important_features,feature_selection
 
 def main():
     df_customer = load_data("ACME-HappinessSurvey2020.csv")
@@ -10,6 +10,10 @@ def main():
     print(clf_report)
     feature_df = important_features(X_train, best_model, tag_to_comment)
     print(feature_df)
+    _,_,removed_features,_ = feature_selection(
+            X_train, y_train, X_test, y_test, best_params, tag_to_comment
+        )  
+    print(f"Questions that can be removed form the survey/n",{tag_to_comment[f] for f in removed_features})  
     print("\n--- Task Done ---")
     sys.exit(0)
     

@@ -2,10 +2,14 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+from sklearn.pipeline import Pipeline
+
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, accuracy_score
+from sklearn.feature_selection import SelectFromModel
+
 
 
 def load_data(filepath):
@@ -70,7 +74,7 @@ def tune_hyperparameters(X_train, y_train):
     grid_search = GridSearchCV(
         estimator=rf,
         param_grid=param_grid,
-        cv=10,
+        cv=2,
         scoring='accuracy',
         n_jobs=1,
         verbose=1
@@ -98,7 +102,47 @@ def important_features(X_train, model, tag_to_comment):
     feature_df = pd.DataFrame({
         'Feature': X_train.columns,
         'Description': [tag_to_comment[f] for f in X_train.columns],
-        'Importance': np.round(importances,3)
+        'Importance': np.round(importances, 6)
     })
+    
     feature_df = feature_df.sort_values('Importance', ascending=False).reset_index(drop=True)
+    
     return feature_df
+
+def feature_selection(X_train, y_train, X_test,y_test, best_params, tag_to_comment):
+    rf_selector = RandomForestClassifier(
+        n_estimators=best_params['n_estimators'],
+        max_depth=best_params['max_depth'],
+        min_samples_split=best_params['min_samples_split'],
+        min_samples_leaf=best_params['min_samples_leaf'],
+        bootstrap=best_params['bootstrap'],
+        max_features=best_params['max_features'],
+        random_state=42
+    )
+    
+    rf_classifier = RandomForestClassifier(
+        n_estimators=best_params['n_estimators'],
+        max_depth=best_params['max_depth'],
+        min_samples_split=best_params['min_samples_split'],
+        min_samples_leaf=best_params['min_samples_leaf'],
+        bootstrap=best_params['bootstrap'],
+        max_features=best_params['max_features'],
+        random_state=42
+    )
+    
+    clf = Pipeline([
+        ('feature_selection', SelectFromModel(rf_selector)),
+        ('classification', rf_classifier)
+    ])
+    
+    clf.fit(X_train, y_train.values.ravel())
+    
+    feature_selector = clf.named_steps['feature_selection']
+    selected_mask = feature_selector.get_support()
+    selected_features = X_train.columns[selected_mask].tolist()
+    removed_features = X_train.columns[~selected_mask].tolist()
+    
+    y_pred = clf.predict(X_test)
+    test_accuracy = round(accuracy_score(y_test, y_pred), 3)
+        
+    return clf, selected_features, removed_features, test_accuracy
