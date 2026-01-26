@@ -6,6 +6,7 @@ from sklearn.pipeline import Pipeline
 
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import make_scorer, recall_score
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import classification_report, accuracy_score
 from sklearn.feature_selection import SelectFromModel
@@ -71,11 +72,14 @@ def tune_hyperparameters(X_train, y_train):
     
     rf = RandomForestClassifier(random_state=42)
     
+    # Maximise the prediction accuracy of minority class 
+    minority_recall = make_scorer(recall_score, pos_label=0)
+
     grid_search = GridSearchCV(
         estimator=rf,
         param_grid=param_grid,
-        cv=2,
-        scoring='accuracy',
+        cv=10,
+        scoring= minority_recall,
         n_jobs=1,
         verbose=1
     )
