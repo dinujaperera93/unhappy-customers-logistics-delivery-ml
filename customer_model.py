@@ -3,23 +3,13 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.pipeline import Pipeline
-
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import make_scorer, recall_score
-from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import classification_report, accuracy_score
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.metrics import make_scorer, recall_score, classification_report, accuracy_score
 from sklearn.feature_selection import SelectFromModel
+from lazypredict.Supervised import LazyClassifier
 
-
-
-def load_data(filepath):
-    df = pd.read_csv(filepath)
-    return df
-
-def explore_data(df):
-    
-    tag_to_comment = {
+tag_to_comment = {
         "X1": "Order delivered on time",
         "X2": "Contents of the order was as expected",
         "X3": "Ordered everything wanted to order",
@@ -27,7 +17,12 @@ def explore_data(df):
         "X5": "Satisfied with courier",
         "X6": "The app makes ordering easy"
     }
-    
+
+def load_data(filepath):
+    df = pd.read_csv(filepath)
+    return df
+
+def explore_data(df):    
     print(pd.concat([df.head(5), df.tail(5)]))
     print(df.shape)
     
@@ -35,56 +30,63 @@ def explore_data(df):
     
     for col in df.loc[:, df.columns != 'Y']:
         plt.figure()
-        sns.countplot(data=df, x=col, hue="Y")
-        plt.title(f'Distribution of {col}')
-        plt.xlabel(f'{tag_to_comment[col]}')
+        if col == "Y":
+            sns.countplot(data=df, x="Y")
+            plt.title('Target Distribution')
+        else:
+            sns.countplot(data=df, x=col, hue="Y")
+            plt.title(tag_to_comment.get(col,col))
+   
         plt.ylabel('Count')
         plt.grid(True)
         plt.show()
-        
-    plt.figure()
-    sns.countplot(data=df, x="Y")
-    plt.title('Distribution of Y')
-    plt.xlabel('Happiness')
-    plt.ylabel('Count')
-    plt.grid(True)
-    plt.show() 
        
-    return df, tag_to_comment
+    return df
 
 def split_data(df, target, test_size=0.2):
     X = df.loc[:, df.columns != target]
-    y = df.loc[:, df.columns == target]
-    X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y,test_size= test_size, random_state=42)
+    y = df[target].values.ravel()
+    X_train, X_test, y_train, y_test = train_test_split(X, y,test_size= test_size, random_state=42)
     print(f"Size of the training set: {X_train.shape[0]}\nSize of the testing set: {X_test.shape[0]}")
     return X_train, X_test, y_train, y_test
+
+def select_model(X_train, X_test, y_train, y_test):
+    def minority_recall(y_true, y_pred):
+        return recall_score(y_true, y_pred, pos_label=0)
+    
+    clf = LazyClassifier(verbose=0, ignore_warnings=True, custom_metric=minority_recall)
+    models, predictions = clf.fit(X_train, X_test, y_train, y_test)
+    
+    print(models)
+        
+    print(f"\nBest model for minority class: {models.index[0]}")
+    return models, predictions
     
 def tune_hyperparameters(X_train, y_train):
     
     param_grid = {
-        'n_estimators': [50, 100, 200],
-        'max_depth': [1, 3, 6, None],
-        'min_samples_split': [2, 5, 10],
-        'min_samples_leaf': [1, 2, 4],
-        'bootstrap': [True, False],
-        'max_features': ['sqrt', 'log2', None]
+        'n_estimators': [100, 200, 300],
+        'max_depth': [3, 5, 7],
+        'min_samples_split': [5, 10],
+        'min_samples_leaf': [2, 4],
+        'max_features': ['sqrt', 'log2'],
     }
     
-    rf = RandomForestClassifier(random_state=42)
+    selected_model = ExtraTreesClassifier(random_state=42, class_weight='balanced')
     
     # Maximise the prediction accuracy of minority class 
     minority_recall = make_scorer(recall_score, pos_label=0)
 
     grid_search = GridSearchCV(
-        estimator=rf,
+        estimator= selected_model,
         param_grid=param_grid,
         cv=10,
         scoring= minority_recall,
-        n_jobs=1,
+        n_jobs=-1,
         verbose=1
     )
     
-    grid_search.fit(X_train, y_train.values.ravel())
+    grid_search.fit(X_train, y_train)
     
     best_model = grid_search.best_estimator_
     best_params = grid_search.best_params_
@@ -107,46 +109,24 @@ def important_features(X_train, model, tag_to_comment):
         'Feature': X_train.columns,
         'Description': [tag_to_comment[f] for f in X_train.columns],
         'Importance': np.round(importances, 6)
-    })
-    
-    feature_df = feature_df.sort_values('Importance', ascending=False).reset_index(drop=True)
+    }).sort_values('Importance', ascending=False).reset_index(drop=True)
     
     return feature_df
 
-def feature_selection(X_train, y_train, X_test,y_test, best_params, tag_to_comment):
-    rf_selector = RandomForestClassifier(
-        n_estimators=best_params['n_estimators'],
-        max_depth=best_params['max_depth'],
-        min_samples_split=best_params['min_samples_split'],
-        min_samples_leaf=best_params['min_samples_leaf'],
-        bootstrap=best_params['bootstrap'],
-        max_features=best_params['max_features'],
-        random_state=42
-    )
-    
-    rf_classifier = RandomForestClassifier(
-        n_estimators=best_params['n_estimators'],
-        max_depth=best_params['max_depth'],
-        min_samples_split=best_params['min_samples_split'],
-        min_samples_leaf=best_params['min_samples_leaf'],
-        bootstrap=best_params['bootstrap'],
-        max_features=best_params['max_features'],
-        random_state=42
-    )
+def feature_selection(X_train, y_train, X_test, y_test, best_params):
+    model_params = {**best_params, 'random_state': 42, 'class_weight': 'balanced'}
     
     clf = Pipeline([
-        ('feature_selection', SelectFromModel(rf_selector)),
-        ('classification', rf_classifier)
+        ('feature_selection', SelectFromModel(ExtraTreesClassifier(**model_params))),
+        ('classification', ExtraTreesClassifier(**model_params))
     ])
     
-    clf.fit(X_train, y_train.values.ravel())
+    clf.fit(X_train, y_train)
     
-    feature_selector = clf.named_steps['feature_selection']
-    selected_mask = feature_selector.get_support()
+    selected_mask = clf.named_steps['feature_selection'].get_support()
     selected_features = X_train.columns[selected_mask].tolist()
     removed_features = X_train.columns[~selected_mask].tolist()
     
-    y_pred = clf.predict(X_test)
-    test_accuracy = round(accuracy_score(y_test, y_pred), 3)
+    test_accuracy = round(accuracy_score(y_test, clf.predict(X_test)), 3)
         
     return clf, selected_features, removed_features, test_accuracy
