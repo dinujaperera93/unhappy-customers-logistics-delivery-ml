@@ -10,6 +10,8 @@ from sklearn.feature_selection import SelectFromModel
 from lazypredict.Supervised import LazyClassifier
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 from sklearn.model_selection import cross_val_score
+from sklearn.ensemble import VotingClassifier
+from mlxtend.classifier import StackingCVClassifier
 
 # Feature explaination
 tag_to_comment = {
@@ -47,16 +49,16 @@ def explore_data(df):
        
     return df
 
-def split_data(df, target, test_size=0.2):
+def split_data(df, target, seed, test_size=0.2):
     X = df.loc[:, df.columns != target]
     y = df[target].values.ravel()
     
-    # Since the data is balanced no stratification us needed, 80/20 split
-    X_train, X_test, y_train, y_test = train_test_split(X, y,test_size= test_size, random_state=42)
+    # Since the data is balanced no stratification is needed, 80/20 split
+    X_train, X_test, y_train, y_test = train_test_split(X, y,test_size= test_size, random_state=seed)
     print(f"Size of the training set: {X_train.shape[0]}\nSize of the testing set: {X_test.shape[0]}")
     return X_train, X_test, y_train, y_test
 
-#Tries all 30 models of Lazy Classifier
+# Tries all 30 models of Lazy Classifier
 def select_model(X_train, X_test, y_train, y_test):
     def minority_recall(y_true, y_pred):
         return recall_score(y_true, y_pred, pos_label=0)
@@ -70,7 +72,7 @@ def select_model(X_train, X_test, y_train, y_test):
     print(f"\nBest model for minority class: {models.index[0]}")
     return models, predictions
     
-def tune_hyperparameters(X_train, y_train):
+def tune_hyperparameters(X_train, y_train, seed):
     
     # Maximise the prediction accuracy of minority class 
     minority_recall = make_scorer(recall_score, pos_label=0)
@@ -92,7 +94,7 @@ def tune_hyperparameters(X_train, y_train):
             'min_samples_leaf': int(params['min_samples_leaf']),
             'max_features': params['max_features'],
         }
-        model = ExtraTreesClassifier(**params, random_state=42, class_weight='balanced')
+        model = ExtraTreesClassifier(**params, random_state=seed, class_weight='balanced')
         score = cross_val_score(model, X_train, y_train, cv=20, scoring=minority_recall).mean() # Get the average of 10 scores
         return {'loss': -score, 'status': STATUS_OK} # Trial okay
     
@@ -107,7 +109,7 @@ def tune_hyperparameters(X_train, y_train):
         'min_samples_leaf': int(best['min_samples_leaf']),
         'max_features': ['sqrt', 'log2', None][best['max_features']],  
     }
-    best_model = ExtraTreesClassifier(**best_params, random_state=42, class_weight='balanced')
+    best_model = ExtraTreesClassifier(**best_params, random_state=seed, class_weight='balanced')
     best_model.fit(X_train, y_train)
     best_score = -min(t['result']['loss'] for t in trials.trials)
     
@@ -132,8 +134,61 @@ def important_features(X_train, model, tag_to_comment):
     
     return feature_df
 
-def feature_selection(X_train, y_train, X_test, y_test, best_params):
-    model_params = {**best_params, 'random_state': 42, 'class_weight': 'balanced'}
+def ensemble_bagg_Voting():
+    ensemble_model=VotingClassifier(estimators= [('KNN', knn), ('Random Forest', rf),('XGBoost',xgb),('Logistic',log), ('NN',nn)], voting='hard')
+    ensemble_model.fit(x_train,y_train)
+    ensemble_model.score(x_test,y_test)
+    
+def ensemble_boost_Stacking():
+    sclf = StackingCVClassifier(classifiers=[knn, rf, xgb, log, nn, log],
+                          meta_classifier=log)
+
+    for clf, label in zip([knn, rf, xgb, log, nn, log],
+                        ['KNearest Neighbors',
+                        'Random Forest',
+                        'XGB',
+                        'Logistic Regression',
+                        'NN',
+                        'MetaClassifier']):
+        sclf_scores = model_selection.cross_val_score(clf, X, Y,
+                                                cv=10, scoring='accuracy')
+    
+
+    models = []
+    models.append(('KNN', knn))
+    models.append(('RF', rf))
+
+    models.append(('XGB', xgb))
+    models.append(('Logistic Regression', log))
+    models.append(('NN', nn))
+    models.append(('Voting',ensemble_model))
+
+    results = []
+    names = []
+
+    for name, model in models:
+        kfold = model_selection.StratifiedKFold(n_splits=10, random_state=7,shuffle=True)
+        cv_results = model_selection.cross_val_score(model, X, Y, cv=kfold, scoring='accuracy')
+        results.append(cv_results)
+        names.append(name)
+        msg = "{}: {} ({})".format(name, cv_results.mean(), cv_results.std())
+        print(msg)
+
+    results.append(np.asarray(sclf_scores))
+    names.append('Stacking')
+
+    df = pd.DataFrame({'names':names, 'results':results})
+    df = df.explode('results')
+
+    fig = plt.figure(figsize=(10,6))
+    fig.suptitle('Model Comparison')
+    ax = sns.boxplot(x=df['names'], y=df['results'])
+    plt.xlabel('Classifiers')
+    plt.ylabel('Accuracy')
+    plt.show()
+
+def feature_selection(X_train, y_train, X_test, y_test, best_params, seed):
+    model_params = {**best_params, 'random_state': seed, 'class_weight': 'balanced'}
     
     clf = Pipeline([
         ('feature_selection', SelectFromModel(ExtraTreesClassifier(**model_params))),
