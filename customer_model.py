@@ -8,6 +8,9 @@ from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.metrics import make_scorer, recall_score, classification_report, accuracy_score
 from sklearn.feature_selection import SelectFromModel
 from lazypredict.Supervised import LazyClassifier
+from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
+from sklearn.model_selection import cross_val_score
+
 
 tag_to_comment = {
         "X1": "Order delivered on time",
@@ -64,33 +67,37 @@ def select_model(X_train, X_test, y_train, y_test):
     
 def tune_hyperparameters(X_train, y_train):
     
-    param_grid = {
+    # Maximise the prediction accuracy of minority class 
+    minority_recall = make_scorer(recall_score, pos_label=0)
+
+    space = {
+        'n_estimators': hp.choice('n_estimators', [100, 200, 300]),
+        'max_depth': hp.choice('max_depth', [3, 5, 7]),
+        'min_samples_split': hp.choice('min_samples_split', [5, 10]),
+        'min_samples_leaf': hp.choice('min_samples_leaf', [2, 4]),
+        'max_features': hp.choice('max_features', ['sqrt', 'log2']),
+    }
+    
+    def objective(params):
+        model = ExtraTreesClassifier(**params, random_state=42, class_weight='balanced')
+        score = cross_val_score(model, X_train, y_train, cv=10, scoring=minority_recall).mean()
+        return {'loss': -score, 'status': STATUS_OK}
+    
+    trials = Trials()
+    best = fmin(fn=objective, space=space, algo=tpe.suggest, max_evals=50, trials=trials)
+    
+    choices = {
         'n_estimators': [100, 200, 300],
         'max_depth': [3, 5, 7],
         'min_samples_split': [5, 10],
         'min_samples_leaf': [2, 4],
         'max_features': ['sqrt', 'log2'],
     }
+    best_params = {k: choices[k][v] for k, v in best.items()}
     
-    selected_model = ExtraTreesClassifier(random_state=42, class_weight='balanced')
-    
-    # Maximise the prediction accuracy of minority class 
-    minority_recall = make_scorer(recall_score, pos_label=0)
-
-    grid_search = GridSearchCV(
-        estimator= selected_model,
-        param_grid=param_grid,
-        cv=10,
-        scoring= minority_recall,
-        n_jobs=-1,
-        verbose=1
-    )
-    
-    grid_search.fit(X_train, y_train)
-    
-    best_model = grid_search.best_estimator_
-    best_params = grid_search.best_params_
-    best_score = grid_search.best_score_
+    best_model = ExtraTreesClassifier(**best_params, random_state=42, class_weight='balanced')
+    best_model.fit(X_train, y_train)
+    best_score = -min(t['result']['loss'] for t in trials.trials)
     
     print(f"Best Parameters: {best_params}")
     print(f"Best Score: {round(best_score,2)}")
