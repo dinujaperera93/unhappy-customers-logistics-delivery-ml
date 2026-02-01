@@ -1,14 +1,18 @@
 import sys
 import random
-from customer_model import load_data, explore_data,split_data, select_model, tune_hyperparameters, evaluate_model, important_features,feature_selection, tag_to_comment
+from pathlib import Path
+from src import load_data, explore_data,split_data, select_model, tune_hyperparameters, evaluate_model, important_features,feature_selection, tag_to_comment
 
 
 def main():
-    seed = random.randint(1000,9999)
-    #seed = 8665
-    print("Random interger: ",seed)
+    #seed = random.randint(1000,9999)
+    seed = 7964
+    print("Random seed: ",seed)
     
-    df_customer = load_data("ACME-HappinessSurvey2020.csv")
+    ROOT = Path(__file__).resolve().parent
+    DATA_PATH = ROOT / "data" / "ACME-HappinessSurvey2020.csv"
+
+    df_customer = load_data(DATA_PATH)
     explore_df  = explore_data(df_customer)
     X_train, X_test, y_train, y_test = split_data(explore_df, "Y", seed, test_size=0.2)
     

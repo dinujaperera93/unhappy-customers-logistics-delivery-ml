@@ -3,15 +3,16 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.pipeline import Pipeline
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.ensemble import ExtraTreesClassifier
-from sklearn.metrics import make_scorer, recall_score, classification_report, accuracy_score
+from sklearn.model_selection import train_test_split
+
 from sklearn.feature_selection import SelectFromModel
 from lazypredict.Supervised import LazyClassifier
+
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 from sklearn.model_selection import cross_val_score
-from sklearn.ensemble import VotingClassifier
-from mlxtend.classifier import StackingCVClassifier
+from sklearn.ensemble import ExtraTreesClassifier, RandomForestClassifier, VotingClassifier, StackingClassifier
+
+from sklearn.metrics import make_scorer, recall_score, classification_report, accuracy_score
 
 # Feature explaination
 tag_to_comment = {
@@ -24,8 +25,7 @@ tag_to_comment = {
     }
 
 def load_data(filepath):
-    df = pd.read_csv(filepath)
-    return df
+    return pd.read_csv(filepath)
 
 def explore_data(df):    
     print(pd.concat([df.head(5), df.tail(5)]))
@@ -39,6 +39,7 @@ def explore_data(df):
         if col == "Y":
             sns.countplot(data=df, x="Y")
             plt.title('Target Distribution')
+            plt.xlabel("Unhappy(0)  Happy (1)")
         else:
             sns.countplot(data=df, x=col, hue="Y")
             plt.title(f"{tag_to_comment.get(col,col)} ({col})")
@@ -134,58 +135,58 @@ def important_features(X_train, model, tag_to_comment):
     
     return feature_df
 
-def ensemble_bagg_Voting():
-    ensemble_model=VotingClassifier(estimators= [('KNN', knn), ('Random Forest', rf),('XGBoost',xgb),('Logistic',log), ('NN',nn)], voting='hard')
-    ensemble_model.fit(x_train,y_train)
-    ensemble_model.score(x_test,y_test)
+# def ensemble_bagg_Voting():
+#     ensemble_model=VotingClassifier(estimators= [('KNN', knn), ('Random Forest', rf),('XGBoost',xgb),('Logistic',log), ('NN',nn)], voting='hard')
+#     ensemble_model.fit(x_train,y_train)
+#     ensemble_model.score(x_test,y_test)
     
-def ensemble_boost_Stacking():
-    sclf = StackingCVClassifier(classifiers=[knn, rf, xgb, log, nn, log],
-                          meta_classifier=log)
+# def ensemble_boost_Stacking():
+#     sclf = StackingCVClassifier(classifiers=[knn, rf, xgb, log, nn, log],
+#                           meta_classifier=log)
 
-    for clf, label in zip([knn, rf, xgb, log, nn, log],
-                        ['KNearest Neighbors',
-                        'Random Forest',
-                        'XGB',
-                        'Logistic Regression',
-                        'NN',
-                        'MetaClassifier']):
-        sclf_scores = model_selection.cross_val_score(clf, X, Y,
-                                                cv=10, scoring='accuracy')
+#     for clf, label in zip([knn, rf, xgb, log, nn, log],
+#                         ['KNearest Neighbors',
+#                         'Random Forest',
+#                         'XGB',
+#                         'Logistic Regression',
+#                         'NN',
+#                         'MetaClassifier']):
+#         sclf_scores = model_selection.cross_val_score(clf, X, Y,
+#                                                 cv=10, scoring='accuracy')
     
 
-    models = []
-    models.append(('KNN', knn))
-    models.append(('RF', rf))
+#     models = []
+#     models.append(('KNN', knn))
+#     models.append(('RF', rf))
 
-    models.append(('XGB', xgb))
-    models.append(('Logistic Regression', log))
-    models.append(('NN', nn))
-    models.append(('Voting',ensemble_model))
+#     models.append(('XGB', xgb))
+#     models.append(('Logistic Regression', log))
+#     models.append(('NN', nn))
+#     models.append(('Voting',ensemble_model))
 
-    results = []
-    names = []
+#     results = []
+#     names = []
 
-    for name, model in models:
-        kfold = model_selection.StratifiedKFold(n_splits=10, random_state=7,shuffle=True)
-        cv_results = model_selection.cross_val_score(model, X, Y, cv=kfold, scoring='accuracy')
-        results.append(cv_results)
-        names.append(name)
-        msg = "{}: {} ({})".format(name, cv_results.mean(), cv_results.std())
-        print(msg)
+#     for name, model in models:
+#         kfold = model_selection.StratifiedKFold(n_splits=10, random_state=7,shuffle=True)
+#         cv_results = model_selection.cross_val_score(model, X, Y, cv=kfold, scoring='accuracy')
+#         results.append(cv_results)
+#         names.append(name)
+#         msg = "{}: {} ({})".format(name, cv_results.mean(), cv_results.std())
+#         print(msg)
 
-    results.append(np.asarray(sclf_scores))
-    names.append('Stacking')
+#     results.append(np.asarray(sclf_scores))
+#     names.append('Stacking')
 
-    df = pd.DataFrame({'names':names, 'results':results})
-    df = df.explode('results')
+#     df = pd.DataFrame({'names':names, 'results':results})
+#     df = df.explode('results')
 
-    fig = plt.figure(figsize=(10,6))
-    fig.suptitle('Model Comparison')
-    ax = sns.boxplot(x=df['names'], y=df['results'])
-    plt.xlabel('Classifiers')
-    plt.ylabel('Accuracy')
-    plt.show()
+#     fig = plt.figure(figsize=(10,6))
+#     fig.suptitle('Model Comparison')
+#     ax = sns.boxplot(x=df['names'], y=df['results'])
+#     plt.xlabel('Classifiers')
+#     plt.ylabel('Accuracy')
+#     plt.show()
 
 def feature_selection(X_train, y_train, X_test, y_test, best_params, seed):
     model_params = {**best_params, 'random_state': seed, 'class_weight': 'balanced'}
