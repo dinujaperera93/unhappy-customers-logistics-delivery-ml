@@ -3,16 +3,17 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.pipeline import Pipeline
-from sklearn.model_selection import train_test_split
-
+from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.feature_selection import SelectFromModel
 from lazypredict.Supervised import LazyClassifier
 
-from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
-from sklearn.model_selection import cross_val_score
-from sklearn.ensemble import ExtraTreesClassifier, RandomForestClassifier, VotingClassifier, StackingClassifier
-
+from sklearn.ensemble import ExtraTreesClassifier, RandomForestClassifier
+from sklearn.ensemble import VotingClassifier, StackingClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.linear_model import LogisticRegression
+from lightgbm import LGBMClassifier
 from sklearn.metrics import make_scorer, recall_score, classification_report, accuracy_score
+from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 
 # Feature explaination
 tag_to_comment = {
@@ -30,25 +31,7 @@ def load_data(filepath):
 def explore_data(df):    
     print(pd.concat([df.head(5), df.tail(5)]))
     print(f"Shape of the dataset : {df.shape}")
-    
     df.info()
-    
-    # Plot the distribution of target and features by the target
-    for col in df.columns:
-        plt.figure()
-        if col == "Y":
-            sns.countplot(data=df, x="Y")
-            plt.title('Target Distribution')
-            plt.xlabel("Unhappy(0)  Happy (1)")
-        else:
-            sns.countplot(data=df, x=col, hue="Y")
-            plt.title(f"{tag_to_comment.get(col,col)} ({col})")
-   
-        plt.ylabel('Count')
-        plt.grid(True)
-        plt.show()
-       
-    return df
 
 def split_data(df, target, seed, test_size=0.2):
     X = df.loc[:, df.columns != target]
@@ -58,6 +41,25 @@ def split_data(df, target, seed, test_size=0.2):
     X_train, X_test, y_train, y_test = train_test_split(X, y,test_size= test_size, random_state=seed)
     print(f"Size of the training set: {X_train.shape[0]}\nSize of the testing set: {X_test.shape[0]}")
     return X_train, X_test, y_train, y_test
+
+# Use EDA only for training data to avoid data leakage
+def EDA(X_train, y_train): 
+    # Plot the distribution of target and features by the target
+    for col in X_train.columns:
+        plt.figure()
+        sns.countplot(x=X_train[col], hue=y_train)
+        plt.title(f"{tag_to_comment.get(col,col)} ({col})")
+        plt.ylabel('Count')
+        plt.grid(True)
+        plt.show()  
+    
+    plt.figure()
+    sns.countplot(x=y_train)
+    plt.title('Target Distribution')
+    plt.xlabel("Unhappy(0)  Happy (1)")
+    plt.ylabel('Count')
+    plt.grid(True)
+    plt.show()
 
 # Tries all 30 models of Lazy Classifier
 def select_model(X_train, X_test, y_train, y_test):
@@ -69,9 +71,15 @@ def select_model(X_train, X_test, y_train, y_test):
     models, predictions = clf.fit(X_train, X_test, y_train, y_test)
     
     print(models)
-        
-    print(f"\nBest model for minority class: {models.index[0]}")
+    print(f"\nBest model for minority class: {models['minority_recall'].idxmax()}")
     return models, predictions
+
+def evaluate_model(model, X_test, y_test):
+    y_pred = model.predict(X_test)
+    clf_report = classification_report(y_test, y_pred)
+    return clf_report
+
+# Get the top four models from lazy classifier
     
 def tune_hyperparameters(X_train, y_train, seed):
     
@@ -118,11 +126,6 @@ def tune_hyperparameters(X_train, y_train, seed):
     print(f"Best Score: {round(best_score,2)}")
     
     return best_model, best_params, best_score
-
-def evaluate_model(model, X_test, y_test):
-    y_pred = model.predict(X_test)
-    clf_report = classification_report(y_test, y_pred)
-    return clf_report
 
 def important_features(X_train, model, tag_to_comment):
     importances = model.feature_importances_
