@@ -1,5 +1,14 @@
 import sys
 import random
+import os
+import warnings
+# Silence warnings
+warnings.filterwarnings("ignore")
+# Silence LightGBM
+os.environ["LIGHTGBM_VERBOSE"] = "-1"
+os.environ["LIGHTGBM_LOG_LEVEL"] = "fatal"
+# Silence tqdm progress bars (used by LazyPredict)
+os.environ["TQDM_DISABLE"] = "1"
 from pathlib import Path
 from src import load_data, explore_data,split_data, select_model, tune_hyperparameters, evaluate_model, important_features,feature_selection, tag_to_comment
 

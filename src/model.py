@@ -29,7 +29,7 @@ def load_data(filepath):
 
 def explore_data(df):    
     print(pd.concat([df.head(5), df.tail(5)]))
-    print(df.shape)
+    print(f"Shape of the dataset : {df.shape}")
     
     df.info()
     
@@ -54,7 +54,7 @@ def split_data(df, target, seed, test_size=0.2):
     X = df.loc[:, df.columns != target]
     y = df[target].values.ravel()
     
-    # Since the data is balanced no stratification is needed, 80/20 split
+    # Since the data is nearly balanced no stratification is needed, 80/20 split
     X_train, X_test, y_train, y_test = train_test_split(X, y,test_size= test_size, random_state=seed)
     print(f"Size of the training set: {X_train.shape[0]}\nSize of the testing set: {X_test.shape[0]}")
     return X_train, X_test, y_train, y_test
