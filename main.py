@@ -10,7 +10,7 @@ os.environ["LIGHTGBM_LOG_LEVEL"] = "fatal"
 # Silence tqdm progress bars (used by LazyPredict)
 os.environ["TQDM_DISABLE"] = "1"
 from pathlib import Path
-from src import load_data, explore_data, split_data, EDA, select_model, compare_ensembles, evaluate_model, tag_to_comment
+from src import load_data, explore_data, split_data, EDA, select_model, compare_ensembles, tune_hyperparameters, evaluate_model, important_features, feature_selection, tag_to_comment
 
 
 def main():
@@ -28,13 +28,13 @@ def main():
     models,_ = select_model(X_train, X_test, y_train, y_test) 
     fitted_models, results_df = compare_ensembles(X_train, y_train, X_test, y_test, seed, cv=5)       
        
-    # best_model, best_params,_ = tune_hyperparameters(X_train, y_train, seed)
-    # clf_report = evaluate_model(best_model, X_test, y_test)
-    # print(clf_report)
-    # feature_df = important_features(X_train, best_model, tag_to_comment)
-    # print(feature_df)
-    # _,_,removed_features,_ = feature_selection(X_train, y_train, X_test, y_test, best_params, seed)
-    # print(f"Questions that can be removed from the survey:\n",{tag_to_comment[f] for f in removed_features})  
+    best_model, best_params,_ = tune_hyperparameters(X_train, y_train, seed)
+    clf_report = evaluate_model(best_model, X_test, y_test)
+    print(clf_report)
+    feature_df = important_features(X_train, best_model, tag_to_comment)
+    print(feature_df)
+    _,_,removed_features,_ = feature_selection(X_train, y_train, X_test, y_test, best_params, seed)
+    print(f"Questions that can be removed from the survey:\n",{tag_to_comment[f] for f in removed_features})  
     print("\n--- Task Done ---")
     sys.exit(0)
     

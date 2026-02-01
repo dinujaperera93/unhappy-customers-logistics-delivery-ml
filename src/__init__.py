@@ -1,13 +1,13 @@
-from src.model import (
+from .model import (
     load_data,
     explore_data,
     split_data,
-    select_model,
     EDA,
+    select_model,
     compare_ensembles,
-    #tune_hyperparameters,
+    tune_hyperparameters,
     evaluate_model,
-    #important_features,
-    #feature_selection,
+    important_features,
+    feature_selection,
     tag_to_comment,
 )

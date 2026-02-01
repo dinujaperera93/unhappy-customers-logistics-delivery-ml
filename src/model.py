@@ -80,6 +80,42 @@ def evaluate_model(model, X_test, y_test):
     return clf_report
 
 # Get the top four models from lazy classifier
+def compare_ensembles(X_train, y_train, X_test, y_test, seed, cv=5):    
+    minority_recall = make_scorer(recall_score, pos_label=0)
+    
+    # The 4 base models from LazyClassifier results
+    models = {
+        "LGBM": LGBMClassifier(random_state=seed, verbose=-1),
+        "Random Forest": RandomForestClassifier(random_state=seed, class_weight="balanced"),
+        "ExtraTrees": ExtraTreesClassifier(random_state=seed, class_weight="balanced"),
+        "KNN": KNeighborsClassifier(n_neighbors=7),
+    }
+    
+    base = [(k.lower(), v) for k, v in models.items()]
+    models["Voting"] = VotingClassifier(estimators=base, voting="soft")
+    models["Stacking"] = StackingClassifier(estimators=base, final_estimator=LogisticRegression(max_iter=2000), cv=5)
+    
+    results = []
+    fitted_models = {}
+    
+    for name, model in models.items():
+        mrec = cross_val_score(model, X_train, y_train, cv=cv, scoring=minority_recall).mean()
+        model.fit(X_train, y_train)
+        fitted_models[name] = model
+        results.append({"Model": name, "Minority_Recall": round(mrec, 4)})
+    
+    results_df = pd.DataFrame(results).sort_values("Minority_Recall", ascending=False)
+    print(results_df.to_string(index=False))
+   
+    plt.figure(figsize=(10, 6))
+    ax = sns.barplot(data=results_df, x="Model", y="Minority_Recall")
+    ax.bar_label(ax.containers[0], fmt='%.2f')
+    plt.title("Model Comparison - Minority Recall")
+    plt.ylabel("Minority Recall")
+    plt.grid(True, axis='y')
+    plt.show()
+    
+    return fitted_models, results_df
     
 def tune_hyperparameters(X_train, y_train, seed):
     
@@ -87,24 +123,29 @@ def tune_hyperparameters(X_train, y_train, seed):
     minority_recall = make_scorer(recall_score, pos_label=0)
 
     space = {
-    'n_estimators': hp.quniform('n_estimators', 50, 500, 50),  # 50 to 500, step 50
-    'max_depth': hp.quniform('max_depth', 3, 20, 1),           # 3 to 20, step 1
-    'min_samples_split': hp.quniform('min_samples_split', 2, 20, 1),
-    'min_samples_leaf': hp.quniform('min_samples_leaf', 1, 10, 1),
-    'max_features': hp.choice('max_features', ['sqrt', 'log2', None]), # None = all features
-}
+        'n_estimators': hp.quniform('n_estimators', 50, 500, 50),
+        'max_depth': hp.quniform('max_depth', 3, 15, 1),
+        'learning_rate': hp.uniform('learning_rate', 0.01, 0.3),
+        'num_leaves': hp.quniform('num_leaves', 10, 100, 10),
+        'min_child_samples': hp.quniform('min_child_samples', 5, 50, 5),
+        'subsample': hp.uniform('subsample', 0.6, 1.0),
+        'colsample_bytree': hp.uniform('colsample_bytree', 0.6, 1.0),
+    }
     
     # class_weight='balanced', helps the minority class more
     def objective(params):
         params = {
             'n_estimators': int(params['n_estimators']),
             'max_depth': int(params['max_depth']),
-            'min_samples_split': int(params['min_samples_split']),
-            'min_samples_leaf': int(params['min_samples_leaf']),
-            'max_features': params['max_features'],
+            'learning_rate': params['learning_rate'],
+            'num_leaves': int(params['num_leaves']),
+            'min_child_samples': int(params['min_child_samples']),
+            'subsample': params['subsample'],
+            'colsample_bytree': params['colsample_bytree'],
         }
-        model = ExtraTreesClassifier(**params, random_state=seed, class_weight='balanced')
-        score = cross_val_score(model, X_train, y_train, cv=20, scoring=minority_recall).mean() # Get the average of 10 scores
+        model = LGBMClassifier(**params, random_state=seed, verbose=-1, class_weight='balanced')
+        # Get the average of 5 scores, with cv=5 , each fold has 20 samples so minaarity class per fold is 8~10 samples
+        score = cross_val_score(model, X_train, y_train, cv=5, scoring=minority_recall).mean() 
         return {'loss': -score, 'status': STATUS_OK} # Trial okay
     
     # Objective function, Next combination is picked by Bayesian and try 50 combinations
@@ -114,16 +155,19 @@ def tune_hyperparameters(X_train, y_train, seed):
     best_params = {
         'n_estimators': int(best['n_estimators']),
         'max_depth': int(best['max_depth']),
-        'min_samples_split': int(best['min_samples_split']),
-        'min_samples_leaf': int(best['min_samples_leaf']),
-        'max_features': ['sqrt', 'log2', None][best['max_features']],  
+        'learning_rate': best['learning_rate'],
+        'num_leaves': int(best['num_leaves']),
+        'min_child_samples': int(best['min_child_samples']),
+        'subsample': best['subsample'],
+        'colsample_bytree': best['colsample_bytree'],
     }
-    best_model = ExtraTreesClassifier(**best_params, random_state=seed, class_weight='balanced')
+    
+    best_model = LGBMClassifier(**best_params, random_state=seed, verbose=-1, class_weight='balanced')
     best_model.fit(X_train, y_train)
     best_score = -min(t['result']['loss'] for t in trials.trials)
     
     print(f"Best Parameters: {best_params}")
-    print(f"Best Score: {round(best_score,2)}")
+    print(f"Best Score: {round(best_score, 2)}")
     
     return best_model, best_params, best_score
 
@@ -138,65 +182,12 @@ def important_features(X_train, model, tag_to_comment):
     
     return feature_df
 
-# def ensemble_bagg_Voting():
-#     ensemble_model=VotingClassifier(estimators= [('KNN', knn), ('Random Forest', rf),('XGBoost',xgb),('Logistic',log), ('NN',nn)], voting='hard')
-#     ensemble_model.fit(x_train,y_train)
-#     ensemble_model.score(x_test,y_test)
-    
-# def ensemble_boost_Stacking():
-#     sclf = StackingCVClassifier(classifiers=[knn, rf, xgb, log, nn, log],
-#                           meta_classifier=log)
-
-#     for clf, label in zip([knn, rf, xgb, log, nn, log],
-#                         ['KNearest Neighbors',
-#                         'Random Forest',
-#                         'XGB',
-#                         'Logistic Regression',
-#                         'NN',
-#                         'MetaClassifier']):
-#         sclf_scores = model_selection.cross_val_score(clf, X, Y,
-#                                                 cv=10, scoring='accuracy')
-    
-
-#     models = []
-#     models.append(('KNN', knn))
-#     models.append(('RF', rf))
-
-#     models.append(('XGB', xgb))
-#     models.append(('Logistic Regression', log))
-#     models.append(('NN', nn))
-#     models.append(('Voting',ensemble_model))
-
-#     results = []
-#     names = []
-
-#     for name, model in models:
-#         kfold = model_selection.StratifiedKFold(n_splits=10, random_state=7,shuffle=True)
-#         cv_results = model_selection.cross_val_score(model, X, Y, cv=kfold, scoring='accuracy')
-#         results.append(cv_results)
-#         names.append(name)
-#         msg = "{}: {} ({})".format(name, cv_results.mean(), cv_results.std())
-#         print(msg)
-
-#     results.append(np.asarray(sclf_scores))
-#     names.append('Stacking')
-
-#     df = pd.DataFrame({'names':names, 'results':results})
-#     df = df.explode('results')
-
-#     fig = plt.figure(figsize=(10,6))
-#     fig.suptitle('Model Comparison')
-#     ax = sns.boxplot(x=df['names'], y=df['results'])
-#     plt.xlabel('Classifiers')
-#     plt.ylabel('Accuracy')
-#     plt.show()
-
 def feature_selection(X_train, y_train, X_test, y_test, best_params, seed):
     model_params = {**best_params, 'random_state': seed, 'class_weight': 'balanced'}
     
     clf = Pipeline([
-        ('feature_selection', SelectFromModel(ExtraTreesClassifier(**model_params))),
-        ('classification', ExtraTreesClassifier(**model_params))
+        ('feature_selection', SelectFromModel(LGBMClassifier(**model_params))),
+        ('classification', LGBMClassifier(**model_params))
     ])
     
     clf.fit(X_train, y_train)

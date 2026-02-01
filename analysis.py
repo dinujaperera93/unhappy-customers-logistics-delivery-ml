@@ -8,6 +8,10 @@
 #       format_name: percent
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
+#   kernelspec:
+#     display_name: Python 3
+#     language: python
+#     name: python3
 # ---
 
 # %%
@@ -42,7 +46,7 @@ SEED = 7964
 X_train, X_test, y_train, y_test = split_data(df_customer, "Y", SEED, test_size=0.2)
 
 # %%
-models,_ = select_model(X_train, X_test, y_train, y_test)
+models, predictions = select_model(X_train, X_test, y_train, y_test)
 
 # %%
 best_model, best_params,_ = tune_hyperparameters(X_train, y_train, SEED)
