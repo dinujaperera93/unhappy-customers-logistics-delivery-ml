@@ -17,18 +17,18 @@ from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 
 # Feature explaination
 tag_to_comment = {
-        "X1": "Order delivered on time",
-        "X2": "Contents of the order was as expected",
-        "X3": "Ordered everything wanted to order",
-        "X4": "Paid a good price for the order",
-        "X5": "Satisfied with courier",
-        "X6": "The app makes ordering easy"
-    }
+    "X1": "Order delivered on time",
+    "X2": "Contents of the order was as expected",
+    "X3": "Ordered everything wanted to order",
+    "X4": "Paid a good price for the order",
+    "X5": "Satisfied with courier",
+    "X6": "The app makes ordering easy"
+}
 
 def load_data(filepath):
     return pd.read_csv(filepath)
 
-def explore_data(df):    
+def explore_data(df): 
     print(pd.concat([df.head(5), df.tail(5)]))
     print(f"Shape of the dataset : {df.shape}")
     df.info()
