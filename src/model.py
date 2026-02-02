@@ -115,7 +115,6 @@ def compare_ensembles(X_train, y_train, X_test, y_test, seed, cv=5):
         results.append({"Model": name, "Minority_Recall": round(mrec, 4)})
     
     results_df = pd.DataFrame(results).sort_values("Minority_Recall", ascending=False)
-    print(results_df.to_string(index=False))
    
     plt.figure(figsize=(10, 6))
     ax = sns.barplot(data=results_df, x="Model", y="Minority_Recall")
