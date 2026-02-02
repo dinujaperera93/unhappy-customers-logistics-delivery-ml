@@ -1,11 +1,8 @@
-import os
 import warnings
 from pathlib import Path
 import random
+import sys
 
-os.environ["TQDM_DISABLE"] = "1"
-os.environ["LIGHTGBM_VERBOSE"] = "-1"
-os.environ["LIGHTGBM_LOG_LEVEL"] = "fatal"
 warnings.filterwarnings("ignore")
 
 from src import (
@@ -45,6 +42,7 @@ def main():
     _,_,removed_features,_ = feature_selection(X_train, y_train, X_test, y_test, best_params, seed)
     print(f"Questions that can be removed from the survey:\n",{tag_to_comment[f] for f in removed_features})  
     print("\n--- Task Done ---")
+    sys.exit(0)
     
 if __name__ == "__main__":
     main()

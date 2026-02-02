@@ -1,3 +1,11 @@
+import os
+os.environ["TQDM_DISABLE"] = "1"
+
+# Patch tqdm notebook
+from unittest.mock import MagicMock
+import sys
+sys.modules['tqdm.notebook'] = MagicMock()
+
 import pandas as pd
 import numpy as np
 import seaborn as sns
@@ -72,7 +80,7 @@ def select_model(X_train, X_test, y_train, y_test):
     clf = LazyClassifier(verbose=0, ignore_warnings=True, custom_metric=minority_recall)
     models, predictions = clf.fit(X_train, X_test, y_train, y_test)
     
-    display(models)
+    print(models)
     print(f"\nBest model for minority class: {models['minority_recall'].idxmax()}")
     return models, predictions
 

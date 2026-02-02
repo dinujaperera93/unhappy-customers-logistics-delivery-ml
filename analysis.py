@@ -11,6 +11,15 @@
 # ---
 
 # %%
+import os
+os.environ["TQDM_DISABLE"] = "1"
+
+from unittest.mock import MagicMock
+import sys
+sys.modules['tqdm.notebook'] = MagicMock()
+sys.modules['tqdm.auto'] = MagicMock()
+
+# %%
 from pathlib import Path
 from IPython.display import display
 
@@ -49,7 +58,7 @@ EDA(X_train, y_train)
 # %%
 # LazyPredict (exploration only, uses X_test causing a data leakage)
 models, _ = select_model(X_train, X_test, y_train, y_test)
-display(models)
+print(models)
 
 # %%
 fitted_models, results_df = compare_ensembles(
