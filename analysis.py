@@ -8,6 +8,10 @@
 #       format_name: percent
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
+#   kernelspec:
+#     display_name: Python 3
+#     language: python
+#     name: python3
 # ---
 
 # %%
@@ -58,7 +62,7 @@ EDA(X_train, y_train)
 # %%
 # LazyPredict (exploration only, uses X_test causing a data leakage)
 models, _ = select_model(X_train, X_test, y_train, y_test)
-print(models)
+display(models)
 
 # %%
 fitted_models, results_df = compare_ensembles(
@@ -90,5 +94,3 @@ test_accuracy, removed_features
 print("Questions that can be removed from the survey:")
 for f in removed_features:
     print("-", tag_to_comment.get(f, f))
-
-# %%

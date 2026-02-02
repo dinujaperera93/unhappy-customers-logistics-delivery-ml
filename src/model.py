@@ -128,18 +128,18 @@ def compare_ensembles(X_train, y_train, X_test, y_test, seed, cv=5):
     return fitted_models, results_df
     
 def tune_hyperparameters(X_train, y_train, seed):
-    
+    np.random.seed(seed)
     # Maximise the prediction accuracy of minority class 
     minority_recall = make_scorer(recall_score, pos_label=0)
 
     space = {
-        'n_estimators': hp.quniform('n_estimators', 50, 500, 50),
-        'max_depth': hp.quniform('max_depth', 3, 15, 1),
-        'learning_rate': hp.uniform('learning_rate', 0.01, 0.3),
-        'num_leaves': hp.quniform('num_leaves', 10, 100, 10),
-        'min_child_samples': hp.quniform('min_child_samples', 5, 50, 5),
-        'subsample': hp.uniform('subsample', 0.6, 1.0),
-        'colsample_bytree': hp.uniform('colsample_bytree', 0.6, 1.0),
+        'n_estimators': hp.quniform('n_estimators', 50, 500, 25),
+        'max_depth': hp.quniform('max_depth', 2, 8, 1),
+        'learning_rate': hp.uniform('learning_rate', 0.05, 0.2),
+        'num_leaves': hp.quniform('num_leaves', 5, 31, 5),
+        'min_child_samples': hp.quniform('min_child_samples', 10, 30, 5),
+        'subsample': hp.uniform('subsample', 0.7, 0.9),
+        'colsample_bytree': hp.uniform('colsample_bytree', 0.7, 0.9),
     }
     
     # class_weight='balanced', helps the minority class more
@@ -160,7 +160,8 @@ def tune_hyperparameters(X_train, y_train, seed):
     
     # Objective function, Next combination is picked by Bayesian and try 50 combinations
     trials = Trials()
-    best = fmin(fn=objective, space=space, algo=tpe.suggest, max_evals=100, trials=trials)
+    rstate = np.random.default_rng(seed) # To get same results for terminal and notebook
+    best = fmin(fn=objective, space=space, algo=tpe.suggest, max_evals=50, trials=trials)
     
     best_params = {
         'n_estimators': int(best['n_estimators']),
