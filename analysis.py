@@ -12,6 +12,8 @@
 
 # %%
 from pathlib import Path
+from IPython.display import display
+
 
 from src import (
     load_data,
@@ -47,7 +49,7 @@ EDA(X_train, y_train)
 # %%
 # LazyPredict (exploration only, uses X_test causing a data leakage)
 models, _ = select_model(X_train, X_test, y_train, y_test)
-models.head()
+display(models)
 
 # %%
 fitted_models, results_df = compare_ensembles(

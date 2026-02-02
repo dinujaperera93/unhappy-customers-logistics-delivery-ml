@@ -14,6 +14,8 @@ from sklearn.linear_model import LogisticRegression
 from lightgbm import LGBMClassifier
 from sklearn.metrics import make_scorer, recall_score, classification_report, accuracy_score
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
+from IPython.display import display
+
 
 # Feature explaination
 tag_to_comment = {
@@ -70,7 +72,7 @@ def select_model(X_train, X_test, y_train, y_test):
     clf = LazyClassifier(verbose=0, ignore_warnings=True, custom_metric=minority_recall)
     models, predictions = clf.fit(X_train, X_test, y_train, y_test)
     
-    print(models)
+    display(models)
     print(f"\nBest model for minority class: {models['minority_recall'].idxmax()}")
     return models, predictions
 
