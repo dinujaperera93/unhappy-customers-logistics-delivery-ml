@@ -59,7 +59,7 @@ def EDA(X_train, y_train):
         plt.title(f"{tag_to_comment.get(col,col)} ({col})")
         plt.ylabel('Count')
         plt.grid(True)
-        plt.savefig(FIGURES_DIR / f"feature_{col}.png", bbox_inches='tight')
+        plt.savefig(FIGURES_DIR / f"feature_{col}.png", bbox_inches='tight') # Remove white space
         plt.show() 
         plt.close() # Clears this figure from memory
     
@@ -69,7 +69,7 @@ def EDA(X_train, y_train):
     plt.xlabel("Unhappy(0)  Happy (1)")
     plt.ylabel('Count')
     plt.grid(True)
-    plt.savefig(FIGURES_DIR / "target_distribution.png", bbox_inches='tight')
+    plt.savefig(FIGURES_DIR / "target_distribution.png", bbox_inches='tight') 
     plt.show()
     plt.close()
 
