@@ -9,7 +9,12 @@ sys.modules['tqdm.notebook'] = MagicMock()
 import pandas as pd
 import numpy as np
 import seaborn as sns
+from pathlib import Path
 import matplotlib.pyplot as plt
+
+FIGURES_DIR = Path(__file__).resolve().parent.parent / "figures"
+FIGURES_DIR.mkdir(exist_ok=True)
+
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.feature_selection import SelectFromModel
@@ -22,8 +27,6 @@ from sklearn.linear_model import LogisticRegression
 from lightgbm import LGBMClassifier
 from sklearn.metrics import make_scorer, recall_score, classification_report, accuracy_score
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
-from IPython.display import display
-
 
 # Feature explaination
 tag_to_comment = {
@@ -61,7 +64,9 @@ def EDA(X_train, y_train):
         plt.title(f"{tag_to_comment.get(col,col)} ({col})")
         plt.ylabel('Count')
         plt.grid(True)
-        plt.show()  
+        plt.savefig(FIGURES_DIR / f"feature_{col}.png", bbox_inches='tight')
+        plt.show() 
+        plt.close() # Clears this figure from memory
     
     plt.figure()
     sns.countplot(x=y_train)
@@ -69,9 +74,11 @@ def EDA(X_train, y_train):
     plt.xlabel("Unhappy(0)  Happy (1)")
     plt.ylabel('Count')
     plt.grid(True)
+    plt.savefig(FIGURES_DIR / "target_distribution.png", bbox_inches='tight')
     plt.show()
+    plt.close()
 
-# Tries all 30 models of Lazy Classifier
+# Try all 30 models of Lazy Classifier
 def select_model(X_train, X_test, y_train, y_test):
     def minority_recall(y_true, y_pred):
         return recall_score(y_true, y_pred, pos_label=0)
@@ -102,7 +109,7 @@ def compare_ensembles(X_train, y_train, X_test, y_test, seed, cv=5):
     }
     
     base = [(k.lower(), v) for k, v in models.items()]
-    models["Voting"] = VotingClassifier(estimators=base, voting="soft")
+    models["Voting"] = VotingClassifier(estimators=base, voting="soft") # Soft consider average all model output prediction probabilities for each class not the majority vote
     models["Stacking"] = StackingClassifier(estimators=base, final_estimator=LogisticRegression(max_iter=2000), cv=5)
     
     results = []
@@ -122,7 +129,9 @@ def compare_ensembles(X_train, y_train, X_test, y_test, seed, cv=5):
     plt.title("Model Comparison - Minority Recall")
     plt.ylabel("Minority Recall")
     plt.grid(True, axis='y')
+    plt.savefig(FIGURES_DIR / "model_comparison.png", bbox_inches='tight')
     plt.show()
+    plt.close()
     
     return fitted_models, results_df
     
@@ -144,13 +153,14 @@ def tune_hyperparameters(X_train, y_train, seed):
     # class_weight='balanced', helps the minority class more
     def objective(params):
         params = {
-            'n_estimators': int(params['n_estimators']),
-            'max_depth': int(params['max_depth']),
-            'learning_rate': params['learning_rate'],
-            'num_leaves': int(params['num_leaves']),
-            'min_child_samples': int(params['min_child_samples']),
-            'subsample': params['subsample'],
-            'colsample_bytree': params['colsample_bytree'],
+            # Requre interger returns as hyperopt returns 1000.0 float but LightGBM needs 100 int
+            'n_estimators': int(params['n_estimators']), # number of trees
+            'max_depth': int(params['max_depth']), # tree depth limit
+            'learning_rate': params['learning_rate'], #step size
+            'num_leaves': int(params['num_leaves']), #leaves per tree
+            'min_child_samples': int(params['min_child_samples']), # min samples in leaf
+            'subsample': params['subsample'], # fraction of rows used per tree
+            'colsample_bytree': params['colsample_bytree'], # fraction of columns used per tree
         }
         model = LGBMClassifier(**params, random_state=seed, verbose=-1, class_weight='balanced')
         # Get the average of 5 scores, with cv=5 , each fold has 20 samples so minaarity class per fold is 8~10 samples
@@ -160,7 +170,7 @@ def tune_hyperparameters(X_train, y_train, seed):
     # Objective function, Next combination is picked by Bayesian and try 50 combinations
     trials = Trials()
     rstate = np.random.default_rng(seed) # To get same results for terminal and notebook
-    best = fmin(fn=objective, space=space, algo=tpe.suggest, max_evals=50, trials=trials)
+    best = fmin(fn=objective, space=space, algo=tpe.suggest, max_evals=50, trials=trials, rstate=rstate)
     
     best_params = {
         'n_estimators': int(best['n_estimators']),
