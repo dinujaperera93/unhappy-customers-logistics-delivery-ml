@@ -1,11 +1,6 @@
 import os
 os.environ["TQDM_DISABLE"] = "1"
 
-# Patch tqdm notebook
-from unittest.mock import MagicMock
-import sys
-sys.modules['tqdm.notebook'] = MagicMock()
-
 import pandas as pd
 import numpy as np
 import seaborn as sns

@@ -18,11 +18,6 @@
 import os
 os.environ["TQDM_DISABLE"] = "1"
 
-from unittest.mock import MagicMock
-import sys
-sys.modules['tqdm.notebook'] = MagicMock()
-sys.modules['tqdm.auto'] = MagicMock()
-
 # %%
 from pathlib import Path
 from IPython.display import display
@@ -73,7 +68,6 @@ results_df
 # %%
 # Hyperopt tuning for LGBM
 best_model, best_params, best_score = tune_hyperparameters(X_train, y_train, SEED)
-best_params, round(best_score, 3)
 
 # %%
 # Final evaluation of tuned LGBM on test set
