@@ -2,6 +2,7 @@ import warnings
 from pathlib import Path
 import random
 import sys
+from IPython.display import display
 
 warnings.filterwarnings("ignore")
 
@@ -31,8 +32,9 @@ def main():
     explore_data(df_customer)    
     X_train, X_test, y_train, y_test = split_data(df_customer, "Y", seed, test_size=0.2)
     EDA(X_train,y_train)
-    models,_ = select_model(X_train, X_test, y_train, y_test) 
-    fitted_models, results_df = compare_ensembles(X_train, y_train, X_test, y_test, seed, cv=5)       
+    models,_ = select_model(X_train, X_test, y_train, y_test)
+    display(models) 
+    _, results_df = compare_ensembles(X_train, y_train, X_test, y_test, seed, cv=5)       
     print(results_df.to_string(index=False))
     best_model, best_params,_ = tune_hyperparameters(X_train, y_train, seed)
     clf_report = evaluate_model(best_model, X_test, y_test)

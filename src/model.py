@@ -1,5 +1,5 @@
 import os
-os.environ["TQDM_DISABLE"] = "1"
+os.environ["TQDM_DISABLE"] = "1" # Work normally, but don't show the progress bar
 
 import pandas as pd
 import numpy as np
@@ -82,7 +82,7 @@ def select_model(X_train, X_test, y_train, y_test):
     clf = LazyClassifier(verbose=0, ignore_warnings=True, custom_metric=minority_recall)
     models, predictions = clf.fit(X_train, X_test, y_train, y_test)
     
-    print(models)
+    #print(models)
     print(f"\nBest model for minority class: {models['minority_recall'].idxmax()}")
     return models, predictions
 
