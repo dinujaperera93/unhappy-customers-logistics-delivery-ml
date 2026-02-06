@@ -18,6 +18,8 @@ The objectives of this work were:
 - To identify the most important survey questions
 - To determine whether any questions could be safely removed from future surveys
 
+---
+
 ## The Dataset
 
 Customer feedback was collected from a select cohort which is assumed to be a non bias sample through a short survey.  Each question was rated on a scale from 1 to 5, where higher values indicated stronger agreement.  Customer happiness was recorded as a binary outcome: happy or unhappy.
@@ -30,6 +32,8 @@ X3 = Ordered everything that wanted to order
 X4 = Paid a good price for the order
 X5 = Satisfied with courier
 X6 = The app makes ordering easy
+
+---
 
 ## Approach Taken
 
@@ -56,8 +60,6 @@ Following is th eresult of the LazyClassifier.
 - LightGBM-based models showed strong performance for identifying unhappy customers during cross-validation. 
 - The final tuned LightGBM model achieved balanced and interpretable results on unseen test data  
 
----
-
 ### Feature Importance Findings
 
 Feature importance analysis showed clear patterns in what influenced customer happiness:
@@ -80,6 +82,8 @@ Based on feature selection results, the following questions were identified as r
 - Ordered everything wanted to order  
 
 This suggested that future surveys could be shortened significantly while preserving predictive value.
+
+---
 
 # Recommandation
 
