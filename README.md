@@ -3,7 +3,7 @@
 ---
 
 ## Business Background
-A customer satisfaction survey was provided by a fast-growing logistics and delivery company.  They work with several partners and make on-demand delivery to their customers. As a start-up witha strategic plan of global expansion, customer happiness is their key challenge and plus point.
+A customer satisfaction survey was provided by a fast-growing logistics and delivery company.  They work with several partners to deliver on-demand orders to their customers. Customer happiness is one of their key business measures, as a start-up with a strategic plan of global expansion.
 
 ## Goal
 
