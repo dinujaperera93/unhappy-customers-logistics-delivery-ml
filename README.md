@@ -61,11 +61,24 @@ After testing on few random seeds, all experiments were run with a fixed random 
 - Features: **6 survey questions**
 - Target classes: **nearly balanced**
 
+![Target distribution](figures/target_distribution.png)
+
 ### Baseline Model Screening (LazyPredict)
 LazyPredict was used as an initial screening step. It was treated as a quick baseline because it evaluated models using a single train/test split.
 
+The table below shows selected models from the LazyClassifier output, ranked by minority-class recall.
+
+| Model                | F1 Score | Minority Recall |
+|----------------------|----------|-----------------|
+| ExtraTreesClassifier | 0.68     | 0.85            |
+| LGBMClassifier       | 0.73     | 0.77            |
+| RandomForest         | 0.68     | 0.69            |
+| KNeighborsClassifier | 0.61     | 0.69            |
+
+
 Key observation:
-- Extra Trees achieved the highest minority recall of 0.85 for unhappy customers in this initial run.
+- Extra Trees achieved the highest minority recall of 0.85 for unhappy customers in this initial run. This means that approximately 85% of unhappy customers in the evaluated data split were correctly identified by the Extra Trees model.
+
 
 Following is th eresult of the LazyClassifier.
 
@@ -79,6 +92,8 @@ Models compared:
 - KNN
 - Voting (soft)
 - Stacking
+
+![LazyClassifier model comparison](figures/model_comparison.png)
 
 Best cross-validated minority recall was achieved by:
 - **LightGBM (after tuning)**
