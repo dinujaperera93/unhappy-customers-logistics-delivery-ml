@@ -7,86 +7,151 @@ A customer satisfaction survey was provided by a fast-growing logistics and deli
 
 ## Goal
 
-To identify which factors affected most for the unhappiness of the customers.
+The main focus was to identify which factors affected most for the unhappiness of the customers.
 
 ## Objectives
 
 The objectives of this work were:
 
-- To train model that improve the prediction accuracy of the unhappy customers (Predict more unhappy customers)
-- To reach or exceed the required accuracy benchmark of 73%  
-- To identify the most important survey questions
-- To determine whether any questions could be safely removed from future surveys
+- A model was trained to improve identification of unhappy customers  
+- The required accuracy benchmark of 73% was targeted  
+- The most important survey questions were identified  
+- Low-value questions were tested for removal in future surveys  
 
 ---
 
 ## The Dataset
 
-Customer feedback was collected from a select cohort which is assumed to be a non bias sample through a short survey.  Each question was rated on a scale from 1 to 5, where higher values indicated stronger agreement.  Customer happiness was recorded as a binary outcome: happy or unhappy.
+Customer feedback was collected from a selected **unbiased** cohort using a short survey of six questions. Each question was rated from 1 to 5, where higher values showed stronger agreement. Customer happiness was recorded as a binary outcome: unhappy or happy.
+
 
 ### Data Description
-Y = target attribute (Y) with values indicating 0 (unhappy) and 1 (happy) customers
-X1 = Order delivered on time
-X2 = Contents of the order was as expected
-X3 = Ordered everything that wanted to order
-X4 = Paid a good price for the order
-X5 = Satisfied with courier
-X6 = The app makes ordering easy
+- **Y**: target label, where **0 = unhappy** and **1 = happy**
+- **X1**: Order delivered on time  
+- **X2**: Contents of the order was as expected  
+- **X3**: Ordered everything that was wanted  
+- **X4**: Paid a good price for the order  
+- **X5**: Satisfied with courier  
+- **X6**: The app made ordering easy
 
 ---
 
-## Approach Taken
+## Method
 
 The following steps were carried out:
 
-- The dataset was explored to confirm data quality and balance  
-- The data was split into training and testing sets using an 80/20 split  
-- Exploratory analysis was performed only on training data to avoid leakage  
-- More than 30 classification models were evaluated using an automated model comparison approach  
-- Special attention was given to identifying unhappy customers using minority-class recall  
-- Multiple ensemble models were compared, including Random Forest, Extra Trees, Voting, and Stacking classifiers (these 4 were given by the lazyClassifier as the best minory recallvalues. Lazy classifier uses train and test set which is a dataleakge. later on all ther models with two ensemble methods stacking and voting were compared with cross vaodation approch. 
-- The best model was selected for furthur Hyperparameter tuning was performed usinh hyperopt
-- Feature importance and model-based feature selection were applied  
+- The dataset was checked for shape, types, missing values, and class balance.
+- The data was split into training and testing sets using an **80/20 split** 
+- Exploratory plots were produced using **training data** only to reduce leakage risk. The plots explain how each feature behaves with target.
+- A wide set of classifiers was screened using **LazyPredict** to get a fast baseline view  
+- Special attention was given to identifying unhappy customers using minority-class recall
+- Four candidate models were selected from Lazy Classifier higest minority_recall and re-evaluated using cross-validation for a fairer comparison  
+- Those models include Random Forest, Extra Trees, Voting, with two ensemble methods stacking and voting were compared with cross vaodation approch. 
+- Hyperparameter tuning was performed for LightGBM using Hyperopt (TPE search)  
+- Feature importance and model-based feature selection were applied
 
-Tested several random seed and selected a constant, All experiments were run with a fixed random seed to ensure reproducibility.
+After testing on few random seeds, all experiments were run with a fixed random seed to ensure reproducibility. 
+
+**Selected random seed is 7964**
 
 ## Key Results
 
-- The dataset contained 126 survey responses with  nearly balanced target classes
-Following is th eresult of the LazyClassifier.  
-- Extra Trees Clssifeir gae th best minority-recall from the lazy classifier. Minority-class recall reached as high as 0.85 during model comparison 
-- Later the ensempble results do not provide bette r accuracy they are highlt affected withe selected types of model, specifically 3 out 4 models select for the ensempbling are tree based models. If the approch was with several architectures such treebased, distance based, gradient boosting based then ensembling have a better generatlisation of different techniques when irt comes to modelin g the data.
+### Dataset Summary
+- Rows: **126**
+- Features: **6 survey questions**
+- Target classes: **nearly balanced**
 
-- LightGBM-based models showed strong performance for identifying unhappy customers during cross-validation. 
-- The final tuned LightGBM model achieved balanced and interpretable results on unseen test data  
+### Baseline Model Screening (LazyPredict)
+LazyPredict was used as an initial screening step. It was treated as a quick baseline because it evaluated models using a single train/test split.
+
+Key observation:
+- Extra Trees achieved the highest minority recall of 0.85 for unhappy customers in this initial run.
+
+Following is th eresult of the LazyClassifier.
+
+### Cross-Validated Comparison (Fair Model Comparison)
+Cross-validation was used to compare selected models more reliably. 5 fold cross validation was used as 
+
+Models compared:
+- LightGBM
+- Random Forest
+- Extra Trees
+- KNN
+- Voting (soft)
+- Stacking
+
+Best cross-validated minority recall was achieved by:
+- **LightGBM (after tuning)**
+
+  The ensempble results do not provide bette r accuracy they are highlt affected withe selected types of model, specifically 3 out 4 models select for the ensempbling are tree based models. If the approch was with several architectures such treebased, distance based, gradient boosting based then ensembling have a better generatlisation of different techniques when irt comes to modelin g the data.
+
+### Hyperpatrameter tuning fro hyperopt
+
+- The final tuned LightGBM model achieved balanced and interpretable results on unseen test data
+
+### Tuned LightGBM Performance (Test Set)
+The tuned LightGBM model was evaluated on the held-out test set.
+
+- Test accuracy: **0.65**
+- Unhappy class recall (Y=0): **0.77**
+- Happy class recall (Y=1): **0.54**
+
+This showed that unhappy customers were captured more reliably than happy customers, which matched the main objective.
 
 ### Feature Importance Findings
 
-Feature importance analysis showed clear patterns in what influenced customer happiness:
+Feature importance analysis from LightGBM showed what influenced customer happiness:
 
 Most influential questions were:
 
-1. Satisfaction with the courier  
-2. Perceived price fairness  
-3. Order content accuracy  
+1. **X5: Satisfaction with courier**
+2. **X4: Paid a good price for the order**
 
 Less influential questions were related to app usability and ordering completeness.
 
 ### Survey Optimisation Recommendation
 
-Based on feature selection results, the following questions were identified as removable with minimal impact on prediction performance:
+Based on feature selection results, the following questions were identified as removable with minimal impact of predictive value:
 
 - The app makes ordering easy  
 - Contents of the order was as expected  
 - Order delivered on time  
 - Ordered everything wanted to order  
 
-This suggested that future surveys could be shortened significantly while preserving predictive value.
+This suggested that future surveys could be shortened while preserving predictive value.
 
 ---
 
-# Recommandation
+## Business Recommendations
 
 From a business perspective, the following recommendations can be made:
 
 Courier and paying good price for the order are the leading indicators for unhappiness. If you pay more attention for those future surveys can include more questions related to those two areas while eliminating the other four questions.
+
+For future surveys:
+- More targeted questions around courier experience and pricing fairness can be added  
+- Lower-value questions can be removed to reduce survey effort
+
+---
+## Repository Contents
+
+- `data/ACME-HappinessSurvey2020.csv`  
+  Source dataset used in this project.
+
+- `src/`  
+  Core functions for data loading, splitting, model training, tuning, and feature selection.
+
+- `figures/`  
+  Saved plots from exploratory analysis and model comparison.
+
+- `main.py` (or the main script you run)  
+  End-to-end pipeline run: EDA → model screening → cross-validation → tuning → feature selection.
+
+---
+
+## How to Run
+
+1. Install dependencies  
+2. Run the main script  
+3. Outputs were saved under `figures/` and printed in the console  
+
