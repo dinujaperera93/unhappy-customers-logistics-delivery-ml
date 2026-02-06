@@ -107,9 +107,14 @@ Best cross-validated minority recall was achieved by:
 ### Tuned LightGBM Performance (Test Set)
 The tuned LightGBM model was evaluated on the held-out test set.
 
+|         | precision | recall | f1-score | support|
+|---------|-----------|--------|----------|--------|
+| 0       | 0.62      | 0.77   |  0.69    |   13   |
+| 1       | 0.70      | 0.54   |  0.61    |   13   |
+| accuracy|           |        |  0.65    |   26   |
+
 - Test accuracy: **0.65**
 - Unhappy class recall (Y=0): **0.77**
-- Happy class recall (Y=1): **0.54**
 
 This showed that unhappy customers were captured more reliably than happy customers, which matched the main objective.
 
