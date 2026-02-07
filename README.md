@@ -7,7 +7,7 @@ A customer satisfaction survey was provided by a fast-growing logistics and deli
 
 ## Goal
 
-The main focus was to identify which factors affected most for the unhappiness of the customers.
+The main focus was to identify which factors affected most for the unhappy customers.
 
 ## Objectives
 
