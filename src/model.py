@@ -1,5 +1,5 @@
 import os
-os.environ["TQDM_DISABLE"] = "1" # Work normally, but don't show the progress bar
+os.environ["TQDM_DISABLE"] = "1" # Suppress tqdm progress bars for cleaner output in notebooks and scripts
 
 import pandas as pd
 import numpy as np
@@ -23,7 +23,8 @@ from lightgbm import LGBMClassifier
 from sklearn.metrics import make_scorer, recall_score, classification_report, accuracy_score
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 
-# Feature explaination
+# Mapping of coded feature names to human-readable survey question descriptions.
+# Used throughout the pipeline for readable output and report generation.
 tag_to_comment = {
     "X1": "Order delivered on time",
     "X2": "Contents of the order was as expected",
@@ -42,17 +43,21 @@ def explore_data(df):
     df.info()
 
 def split_data(df, target, seed, test_size=0.2):
+    """Design decision: 80/20 split chosen as a standard ratio for small datasets (126 rows).
+    Stratification is not applied because the target classes are nearly balanced (~50/50),
+    so random splitting is unlikely to produce a skewed split. A fixed random seed ensures
+    reproducibility across runs."""
     X = df.loc[:, df.columns != target]
     y = df[target].values.ravel()
-    
-    # Since the data is nearly balanced no stratification is needed, 80/20 split
-    X_train, X_test, y_train, y_test = train_test_split(X, y,test_size= test_size, random_state=seed)
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=seed)
     print(f"Size of the training set: {X_train.shape[0]}\nSize of the testing set: {X_test.shape[0]}")
     return X_train, X_test, y_train, y_test
 
-# Use EDA only for training data to avoid data leakage
-def EDA(X_train, y_train): 
-    # Plot the distribution of target and features by the target
+def EDA(X_train, y_train):
+    """Design decision: EDA is performed on training data only to prevent data leakage.
+    If test data were included in visualisations, it could influence modelling choices
+    (e.g. feature engineering, threshold selection) and produce over-optimistic results."""
     for col in X_train.columns:
         plt.figure()
         sns.countplot(x=X_train[col], hue=y_train)
@@ -73,16 +78,20 @@ def EDA(X_train, y_train):
     plt.show()
     plt.close()
 
-# Try all 30 models of Lazy Classifier
 def select_model(X_train, X_test, y_train, y_test):
+    """Design decision: LazyPredict is used as a rapid screening tool to evaluate ~30 classifiers
+    in a single pass. This gives a broad baseline view before committing to deeper analysis.
+
+    A custom minority_recall metric (recall with pos_label=0) is used because the business
+    objective prioritises identifying unhappy customers. Standard accuracy would mask poor
+    performance on the minority class. LazyPredict uses a single train/test split, so these
+    results are treated as indicative rather than definitive -- cross-validation follows."""
     def minority_recall(y_true, y_pred):
         return recall_score(y_true, y_pred, pos_label=0)
-    
-    # custom_metric=minority_recall, Checks for the improvement of the minority class
+
     clf = LazyClassifier(verbose=0, ignore_warnings=True, custom_metric=minority_recall)
     models, predictions = clf.fit(X_train, X_test, y_train, y_test)
-    
-    #print(models)
+
     print(f"\nBest model for minority class: {models['minority_recall'].idxmax()}")
     return models, predictions
 
@@ -91,20 +100,35 @@ def evaluate_model(model, X_test, y_test):
     clf_report = classification_report(y_test, y_pred)
     return clf_report
 
-# Get the top four models from lazy classifier
-def compare_ensembles(X_train, y_train, X_test, y_test, seed, cv=5):    
+def compare_ensembles(X_train, y_train, X_test, y_test, seed, cv=5):
+    """Design decision: Four candidate models were selected from the LazyPredict screening
+    based on highest minority_recall. These span different learning paradigms:
+    - Tree-based: Random Forest, Extra Trees (bagging with balanced class weights)
+    - Gradient boosting: LightGBM (sequential correction of errors)
+    - Distance-based: KNN (instance-based, no assumptions about data distribution)
+
+    Two ensemble strategies are added on top:
+    - Voting (soft): averages predicted probabilities across all base models, which is
+      more nuanced than hard voting (majority label). Soft voting benefits from calibrated
+      probability estimates.
+    - Stacking: uses a LogisticRegression meta-learner to combine base model predictions.
+      max_iter=2000 ensures convergence on small datasets.
+
+    5-fold cross-validation provides a more robust estimate than LazyPredict's single split.
+    Note: 3 of 4 base models are tree-based, which limits diversity in ensembles. A more
+    diverse architecture mix (e.g. SVM, naive Bayes) could improve ensemble generalisation."""
     minority_recall = make_scorer(recall_score, pos_label=0)
-    
-    # The 4 base models from LazyClassifier results
+
     models = {
         "LGBM": LGBMClassifier(random_state=seed, verbose=-1),
         "Random Forest": RandomForestClassifier(random_state=seed, class_weight="balanced"),
         "ExtraTrees": ExtraTreesClassifier(random_state=seed, class_weight="balanced"),
         "KNN": KNeighborsClassifier(n_neighbors=7),
     }
-    
+
     base = [(k.lower(), v) for k, v in models.items()]
-    models["Voting"] = VotingClassifier(estimators=base, voting="soft") # Soft consider average all model output prediction probabilities for each class not the majority vote
+    # Soft voting averages predicted probabilities rather than taking the majority label
+    models["Voting"] = VotingClassifier(estimators=base, voting="soft")
     models["Stacking"] = StackingClassifier(estimators=base, final_estimator=LogisticRegression(max_iter=2000), cv=5)
     
     results = []
@@ -131,8 +155,13 @@ def compare_ensembles(X_train, y_train, X_test, y_test, seed, cv=5):
     return fitted_models, results_df
     
 def tune_hyperparameters(X_train, y_train, seed):
+    """Design decision: Hyperopt with TPE (Tree-structured Parzen Estimator) is used instead
+    of grid search or random search. 
+    
+    class_weight='balanced' is set on every candidate model so that the minority class
+    (unhappy customers) receives higher weight during training, directly supporting the
+    business objective of identifying unhappy customers."""
     np.random.seed(seed)
-    # Maximise the prediction accuracy of minority class 
     minority_recall = make_scorer(recall_score, pos_label=0)
 
     space = {
@@ -144,27 +173,26 @@ def tune_hyperparameters(X_train, y_train, seed):
         'subsample': hp.uniform('subsample', 0.7, 0.9),
         'colsample_bytree': hp.uniform('colsample_bytree', 0.7, 0.9),
     }
-    
-    # class_weight='balanced', helps the minority class more
+
     def objective(params):
+        # Hyperopt returns floats (e.g. 100.0) but LightGBM requires int for count parameters
         params = {
-            # Requre interger returns as hyperopt returns 1000.0 float but LightGBM needs 100 int
-            'n_estimators': int(params['n_estimators']), # number of trees
-            'max_depth': int(params['max_depth']), # tree depth limit
-            'learning_rate': params['learning_rate'], #step size
-            'num_leaves': int(params['num_leaves']), #leaves per tree
-            'min_child_samples': int(params['min_child_samples']), # min samples in leaf
-            'subsample': params['subsample'], # fraction of rows used per tree
-            'colsample_bytree': params['colsample_bytree'], # fraction of columns used per tree
+            'n_estimators': int(params['n_estimators']),
+            'max_depth': int(params['max_depth']),
+            'learning_rate': params['learning_rate'],
+            'num_leaves': int(params['num_leaves']),
+            'min_child_samples': int(params['min_child_samples']),
+            'subsample': params['subsample'],
+            'colsample_bytree': params['colsample_bytree'],
         }
         model = LGBMClassifier(**params, random_state=seed, verbose=-1, class_weight='balanced')
-        # Get the average of 5 scores, with cv=5 , each fold has 20 samples so minaarity class per fold is 8~10 samples
-        score = cross_val_score(model, X_train, y_train, cv=5, scoring=minority_recall).mean() 
-        return {'loss': -score, 'status': STATUS_OK} # Trial okay
-    
-    # Objective function, Next combination is picked by Bayesian and try 50 combinations
+        # 5-fold CV: each fold has ~20 samples, so ~8-10 minority class samples per fold
+        score = cross_val_score(model, X_train, y_train, cv=5, scoring=minority_recall).mean()
+        return {'loss': -score, 'status': STATUS_OK}
+
+    # TPE picks the next combination based on Bayesian modelling of past results
     trials = Trials()
-    rstate = np.random.default_rng(seed) # To get same results for terminal and notebook
+    rstate = np.random.default_rng(seed) # Ensures identical results across notebook and script
     best = fmin(fn=objective, space=space, algo=tpe.suggest, max_evals=50, trials=trials, rstate=rstate)
     
     best_params = {
@@ -198,19 +226,24 @@ def important_features(X_train, model, tag_to_comment):
     return feature_df
 
 def feature_selection(X_train, y_train, X_test, y_test, best_params, seed):
+    """Design decision: SelectFromModel with LightGBM is used for model-based feature selection.
+    This automatically drops features whose importance falls below the mean importance threshold
+    (the sklearn default). A pipeline couples selection and classification so that the same
+    tuned hyperparameters are reused consistently. This approach directly answers the business
+    question of which survey questions can be removed without harming predictive value."""
     model_params = {**best_params, 'random_state': seed, 'class_weight': 'balanced'}
-    
+
     clf = Pipeline([
         ('feature_selection', SelectFromModel(LGBMClassifier(**model_params))),
         ('classification', LGBMClassifier(**model_params))
     ])
-    
+
     clf.fit(X_train, y_train)
-    
+
     selected_mask = clf.named_steps['feature_selection'].get_support()
     selected_features = X_train.columns[selected_mask].tolist()
     removed_features = X_train.columns[~selected_mask].tolist()
-    
+
     test_accuracy = round(accuracy_score(y_test, clf.predict(X_test)), 3)
-        
+
     return clf, selected_features, removed_features, test_accuracy
