@@ -153,25 +153,31 @@ For future surveys:
 - Lower-value questions can be removed to reduce survey effort
 
 ---
-## Repository Contents
+## Repository Structure
 
-- `data/ACME-HappinessSurvey2020.csv`  
-  Source dataset used in this project.
-
-- `src/`  
-  Core functions for data loading, splitting, model training, tuning, and feature selection.
-
-- `figures/`  
-  Saved plots from exploratory analysis and model comparison.
-
-- `main.py` (or the main script you run)  
-  End-to-end pipeline run: EDA → model screening → cross-validation → tuning → feature selection.
-
----
+```
+.
+├── data/
+│   └── ACME-HappinessSurvey2020.csv   # Source dataset
+├── src/
+│   ├── __init__.py                     # Package exports
+│   └── model.py                        # Core ML functions (load, split, EDA, train, tune, select)
+├── figures/                            # Saved plots (auto-generated)
+├── main.py                             # End-to-end pipeline script
+├── analysis.ipynb                      # Interactive notebook (synced via jupytext)
+├── analysis.py                         # Notebook as plain Python (jupytext percent format)
+├── requirements.txt                    # Python dependencies
+└── README.md
+```
 
 ## How to Run
 
-1. Install dependencies  
-2. Run the main script  
-3. Outputs were saved under `figures/` and printed in the console  
+```bash
+pip install -r requirements.txt
+python main.py
+```
+
+Outputs are saved under `figures/` and printed to the console.
+
+The Jupyter notebook (`analysis.ipynb`) provides the same pipeline in an interactive format and is synced with `analysis.py` via jupytext.
 
