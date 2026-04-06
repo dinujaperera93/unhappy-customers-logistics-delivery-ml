@@ -16,13 +16,47 @@ TAG_TO_QUESTION = {
     "X6": "The app makes ordering easy",
 }
 
+
 @st.cache_resource
 def load_model():
     return joblib.load(MODEL_PATH)
 
+
 model = load_model()
 
-st.title("Customer Happiness Predictor")
+st.title("Why Are Customers Unhappy?")
+st.markdown(
+    "This tool identifies the **key drivers of customer unhappiness** in a logistics and delivery survey. "
+    "Use the chart below to see which factors matter most, then test individual responses with the predictor."
+)
+
+# --- Key drivers (always visible, this is the main insight) ---
+st.subheader("Key Drivers of Unhappiness")
+importances = model.feature_importances_
+labels = list(TAG_TO_QUESTION.values())
+keys = list(TAG_TO_QUESTION.keys())
+highlight = {"X4", "X5"}
+colors = ["#C0392B" if keys[i] in highlight else "#AAB7B8" for i in range(len(keys))]
+
+order = np.argsort(importances)
+
+fig, ax = plt.subplots(figsize=(7, 4))
+ax.barh([labels[i] for i in order], importances[order], color=[colors[i] for i in order])
+ax.set_xlabel("Importance")
+ax.spines[["top", "right"]].set_visible(False)
+fig.tight_layout()
+st.pyplot(fig)
+
+st.caption(
+    "Satisfaction with courier and price perception are the strongest predictors of unhappiness. "
+    "App usability and order completeness have low predictive weight."
+)
+
+st.divider()
+
+# --- Individual predictor (secondary) ---
+st.subheader("Predict a Single Customer")
+st.markdown("Simulate a customer's survey responses to see how the model classifies them.")
 
 inputs = {
     code: st.slider(f"{code} — {question}", min_value=1, max_value=5, value=3)
@@ -35,14 +69,3 @@ if st.button("Predict"):
         st.error("Unhappy customer")
     else:
         st.success("Happy customer")
-
-with st.expander("View feature importance"):
-    importances = model.feature_importances_
-    labels = [f"{code}: {q}" for code, q in TAG_TO_QUESTION.items()]
-    order = np.argsort(importances)
-    fig, ax = plt.subplots(figsize=(7, 4))
-    ax.barh([labels[i] for i in order], importances[order], color="#4C72B0")
-    ax.set_xlabel("Importance")
-    ax.spines[["top", "right"]].set_visible(False)
-    fig.tight_layout()
-    st.pyplot(fig)
