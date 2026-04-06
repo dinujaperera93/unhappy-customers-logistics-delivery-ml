@@ -17,6 +17,7 @@ from src import (
     evaluate_model,
     important_features,
     feature_selection,
+    save_model,
     tag_to_comment,
 )
 
@@ -47,6 +48,9 @@ def main():
 
     # Step 3: Bayesian hyperparameter tuning on the best architecture (LightGBM)
     best_model, best_params, _ = tune_hyperparameters(X_train, y_train, seed)
+    models_dir = ROOT / "models"
+    models_dir.mkdir(exist_ok=True)
+    save_model(best_model, models_dir / "lgbm_model.joblib")
 
     # Step 4: Final evaluation on held-out test set
     clf_report = evaluate_model(best_model, X_test, y_test)

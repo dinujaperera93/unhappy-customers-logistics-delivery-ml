@@ -8,3 +8,5 @@ lazypredict
 hyperopt
 jupytext
 lightgbm
+joblib
+streamlit

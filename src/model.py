@@ -1,6 +1,7 @@
 import os
 os.environ["TQDM_DISABLE"] = "1" # Suppress tqdm progress bars for cleaner output in notebooks and scripts
 
+import joblib
 import pandas as pd
 import numpy as np
 import seaborn as sns
@@ -224,6 +225,10 @@ def important_features(X_train, model, tag_to_comment):
     }).sort_values('Importance', ascending=False).reset_index(drop=True)
     
     return feature_df
+
+def save_model(model, filepath):
+    joblib.dump(model, filepath)
+    print(f"Model saved to {filepath}")
 
 def feature_selection(X_train, y_train, X_test, y_test, best_params, seed):
     """Design decision: SelectFromModel with LightGBM is used for model-based feature selection.

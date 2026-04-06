@@ -9,5 +9,6 @@ from .model import (
     evaluate_model,
     important_features,
     feature_selection,
+    save_model,
     tag_to_comment,
 )
